@@ -367,6 +367,9 @@ These HTLC transactions are almost identical, except the HTLC-timeout transactio
    * `txout[0]` amount: the HTLC `amount_msat` divided by 1000 (rounding down) minus fees in satoshis (see [Fee Calculation](#fee-calculation))
    * `txout[0]` script: version-0 P2WSH with witness script as shown below
 * if `option_anchors` or `zero_fee_commitments` applies to this commitment transaction, `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used as described in [BOLT #5](05-onchain.md#generation-of-htlc-transactions).
+* if `option_unified_sigs` applies to this channel, `SIGHASH_UNIFIED` is added
+  to each signature's own hash type, giving `0xa3` for the signature received
+  from the peer and `0x21` for the local one.
 
 The witness script for the output is:
 
@@ -382,6 +385,67 @@ The witness script for the output is:
     OP_CHECKSIG
 
 To spend this via penalty, the remote node uses a witness stack `<revocationsig> 1`, and to collect the output, the local node uses an input with nSequence `to_self_delay` and a witness stack `<local_delayedsig> 0`.
+
+## Unified signature hash
+
+Past the BLAKE2b activation a signature opts in to the unified signature hash,
+which binds it to these rules and so cannot be replayed against a verifier
+without them. `option_unified_sigs` in `channel_type` says both peers do this.
+
+A node signing for a channel with `option_unified_sigs`:
+  - MUST add `SIGHASH_UNIFIED` (`0x20`) to the hash type that signature would
+    otherwise use, so:
+    - the commitment transaction, and the closing transaction, are signed with
+      `0x21`.
+    - the input of a splice transaction that spends the previous funding output,
+      which both peers sign, is signed with `0x21`.
+    - an HTLC-timeout or HTLC-success transaction carries two signatures, and
+      they are not alike: the one sent to the peer in `commitment_signed` is
+      `0xa3` where `option_anchors` applies and `0x21` where it does not, while
+      the one the broadcaster makes for itself is `0x21` in both cases, since
+      [BOLT #5](05-onchain.md#generation-of-htlc-transactions) requires
+      `SIGHASH_ALL` there.
+  - MUST apply this to every signature it makes for the channel, including the
+    first commitment signature exchanged while funding.
+  - MUST take the hash type from the channel type rather than from each signing
+    site, and MUST retain that channel type across restarts, since spends may
+    be made long after the channel closes.
+  - MUST NOT open such a channel with a peer that does not set the bit: the
+    two would sign different digests and neither could close the channel.
+
+### Spends only this node signs
+
+The justice transaction handed to a watchtower, and the sweep of a second-level
+HTLC output, are a separate case: no peer verifies them, only the chain does.
+Each spends an output created by a transaction already signed under this
+section, and a verifier without these rules rejects such a transaction, so
+that output does not exist there and the spend cannot be replayed against it.
+
+A node signing a transaction that no peer verifies:
+  - MAY use the hash type that would otherwise apply, leaving `SIGHASH_UNIFIED`
+    off, where the signature's container cannot carry the extra byte.
+
+#### Rationale
+
+Working the values out per transaction rather than per signature gets the
+second-level HTLC transactions wrong. Only the signature the peer supplies may
+be `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY`, so that the broadcaster can attach
+fees to a transaction someone else signed; signing the broadcaster's own half
+that way leaves the transaction valid but open to anyone attaching further
+inputs and outputs, which is why BOLT #5 requires `SIGHASH_ALL` for it. Adding
+the opt-in per signature keeps that distinction, and stays correct if BOLT #3
+changes its own hash types later.
+
+A verifier without these rules computes a different digest for the same
+trailing hash type byte, rather than rejecting the byte itself, so a signature
+made this way fails verification there even though it looks well formed. That
+is what confines a commitment transaction, and everything descending from it,
+to these rules.
+
+`option_unified_sigs` depends on `option_blake2b`, because the unified hash
+does not exist without those rules. That dependency is between feature vectors:
+a `channel_type` carries `option_unified_sigs` alone, since which rules a node
+follows is a property of the node rather than of one of its channels.
 
 ## Legacy Closing Transaction
 
