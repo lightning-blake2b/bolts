@@ -223,6 +223,11 @@ The receiving node:
     - MUST ignore the message.
   - if the specified `chain_hash` is unknown to the receiver:
     - MUST ignore the message.
+  - if the `short_channel_id`'s block height is less than 961,640, the first
+    block under the BLAKE2b rules:
+    - MUST ignore the message: that funding output predates the change of
+      proof of work, so its spend may not be visible to this node.
+    - MUST apply this to a `channel_announcement` it generates itself.
   - if the `short_channel_id`'s output does NOT have at least 6 confirmations:
     - MAY accept the message if the output is close to 6 confirmations, in case
       the receiving node hasn't received the latest block(s) yet.
