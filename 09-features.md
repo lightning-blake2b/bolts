@@ -58,6 +58,7 @@ The Context column decodes as follows:
 | 60/61 | `option_simple_close`             | Simplified closing negotiation                            | IN       | `option_shutdown_anysegwit` | [BOLT #2][bolt02-simple-close]                                        |
 | 62/63 | `option_splice`                   | Allows replacing the funding transaction with a new one   | IN       |                             | [BOLT #2](02-peer-protocol.md#channel-splicing)                       |
 | 66/67 | `option_onion_messages_only_channels` | Only accepts onion messages from peers with a channel | IN       | `option_onion_messages`     | [BOLT #4](04-onion-routing.md#onion-messages)                         |
+| 512/513 | `option_blake2b`                 | Follows the BLAKE2b proof of work rules                   | IN       |                             | [BOLT #9](09-features.md#the-blake2b-rules-bit)                        |
 
 ## Requirements
 
@@ -82,6 +83,30 @@ The receiving node:
 The requirements for receiving specific bits are defined in the linked sections in the table above.
 The requirements for feature bits that are not defined
 above can be found in [BOLT #1: The `init` Message](01-messaging.md#the-init-message).
+
+## The BLAKE2b rules bit
+
+`option_blake2b` states that the node follows the BLAKE2b proof of work rules,
+which took effect at block 961,640. `chain_hash` is unchanged, because a change
+of proof of work is not a change of chain, so nothing else in `init` says which
+rules a node follows.
+
+A node following these rules:
+  - MUST set bit 512 in `init` and in `node_announcement`.
+  - MUST NOT refuse a peer for failing to set it.
+
+### Rationale
+
+Setting the even bit is what separates the two sets of rules: a node without
+them closes the connection under a rule it already implements.
+Requiring the bit inbound is not asked for, because the separation comes from
+the other end declining rather than from this one refusing, and refusing would
+drop any client that speaks the wire protocol for another purpose.
+
+Membership and capability are kept apart deliberately. A node that follows
+these rules but will not open unified-signed channels is still a node on this
+chain, and a single bit for both would refuse it the network rather than one
+channel type.
 
 ## Rationale
 
