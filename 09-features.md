@@ -29,6 +29,8 @@ The Context column decodes as follows:
 * `C+`: presented in the `channel_announcement` message, but always even (required).
 * `9`: presented in [BOLT 11](11-payment-encoding.md) invoices.
 * `B`: presented in the `allowed_features` field of a blinded path.
+* `O`: presented in the `offer_features`, `invreq_features` and
+  `invoice_features` fields of [BOLT 12](12-offer-encoding.md).
 * `T`: used in the `channel_type` field [when opening channels](02-peer-protocol.md#the-open_channel-message).
 
 | Bits  | Name                              | Description                                               | Context  | Dependencies                | Link                                                                  |
@@ -58,7 +60,7 @@ The Context column decodes as follows:
 | 60/61 | `option_simple_close`             | Simplified closing negotiation                            | IN       | `option_shutdown_anysegwit` | [BOLT #2][bolt02-simple-close]                                        |
 | 62/63 | `option_splice`                   | Allows replacing the funding transaction with a new one   | IN       |                             | [BOLT #2](02-peer-protocol.md#channel-splicing)                       |
 | 66/67 | `option_onion_messages_only_channels` | Only accepts onion messages from peers with a channel | IN       | `option_onion_messages`     | [BOLT #4](04-onion-routing.md#onion-messages)                         |
-| 512/513 | `option_blake2b`                 | Follows the BLAKE2b proof of work rules                   | IN9      |                             | [BOLT #9](09-features.md#the-blake2b-rules-bit)                        |
+| 512/513 | `option_blake2b`                 | Follows the BLAKE2b proof of work rules                   | IN9O     |                             | [BOLT #9](09-features.md#the-blake2b-rules-bit)                        |
 
 ## Requirements
 
