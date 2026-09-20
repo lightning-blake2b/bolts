@@ -315,9 +315,14 @@ which is _odd_.
 A writer:
   - MUST set the `9` field to a feature vector compliant with the
     [BOLT 9 origin node requirements](09-features.md#requirements).
+  - if it follows the BLAKE2b proof of work rules:
+    - MUST set `option_blake2b`.
 
 A reader:
   - if the feature vector does not set all known, transitive feature dependencies:
+    - MUST NOT attempt the payment.
+  - if it follows the BLAKE2b proof of work rules and `option_blake2b` is not
+    set:
     - MUST NOT attempt the payment.
   - if the `basic_mpp` feature is offered in the invoice:
     - MAY pay using [Basic multi-part payments](04-onion-routing.md#basic-multi-part-payments).

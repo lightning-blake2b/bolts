@@ -258,6 +258,8 @@ A writer of an offer:
   - MAY set `offer_metadata` for its own use.
   - if it supports bolt12 offer features:
     - MUST set `offer_features`.`features` to the bitmap of bolt12 features.
+  - if it follows the BLAKE2b proof of work rules:
+    - MUST set `option_blake2b` in `offer_features`.
   - if the offer expires:
     - MUST set `offer_absolute_expiry` `seconds_from_epoch` to the number of seconds
       after midnight 1 January 1970, UTC that invoice_request should not be
@@ -299,6 +301,9 @@ A reader of an offer:
   - otherwise: (`offer_chains` is set):
     - if the node does not accept invoices for at least one of the `chains`:
       - MUST NOT respond to the offer
+  - if it follows the BLAKE2b proof of work rules and `offer_features` does
+    not set `option_blake2b`:
+    - MUST NOT respond to the offer.
   - if `offer_amount` is set and `offer_description` is not set:
     - MUST NOT respond to the offer.
   - if `offer_amount` is set and is not greater than zero:
@@ -497,6 +502,8 @@ The writer:
         (e.g. milli-satoshis for bitcoin) for `invreq_chain` (or for bitcoin, if there is no `invreq_chain`).
   - if it supports bolt12 invoice request features:
     - MUST set `invreq_features`.`features` to the bitmap of features.
+  - if it follows the BLAKE2b proof of work rules:
+    - MUST set `option_blake2b` in `invreq_features`.
   - if it received the offer from which it constructed this `invoice_request` using BIP 353 resolution:
     - MUST include `invreq_bip_353_name` with,
       - `name` set to the post-₿, pre-@ part of the BIP 353 HRN,
@@ -508,6 +515,9 @@ The reader:
   - if `invreq_features` contains unknown _odd_ bits that are non-zero:
     - MUST ignore the bit.
   - if `invreq_features` contains unknown _even_ bits that are non-zero:
+    - MUST reject the invoice request.
+  - if it follows the BLAKE2b proof of work rules and `invreq_features` does
+    not set `option_blake2b`:
     - MUST reject the invoice request.
   - MUST reject the invoice request if `signature` is not correct as detailed in [Signature Calculation](#signature-calculation) using the `invreq_payer_id`.
   - if `num_hops` is 0 in any `blinded_path` in `invreq_paths`:
@@ -740,6 +750,8 @@ A writer of an invoice:
     - MUST set `invoice_features`.`features` bit `MPP/compulsory`
   - or if it allows multiple parts to pay the invoice:
     - MUST set `invoice_features`.`features` bit `MPP/optional`
+  - if it follows the BLAKE2b proof of work rules:
+    - MUST set `option_blake2b` in `invoice_features`.
   - if the expiry for accepting payment is not 7200 seconds after `invoice_created_at`:
     - MUST set `invoice_relative_expiry`.`seconds_from_creation` to the number of
       seconds after `invoice_created_at` that payment of this invoice should not be attempted.
@@ -769,6 +781,9 @@ A reader of an invoice:
   - if `invoice_features` contains unknown _odd_ bits that are non-zero:
     - MUST ignore the bit.
   - if `invoice_features` contains unknown _even_ bits that are non-zero:
+    - MUST reject the invoice.
+  - if it follows the BLAKE2b proof of work rules and `invoice_features` does
+    not set `option_blake2b`:
     - MUST reject the invoice.
   - if `invoice_relative_expiry` is present:
     - MUST reject the invoice if the current time since 1970-01-01 UTC is greater than `invoice_created_at` plus `seconds_from_creation`.
