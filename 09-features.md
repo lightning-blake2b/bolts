@@ -58,7 +58,7 @@ The Context column decodes as follows:
 | 60/61 | `option_simple_close`             | Simplified closing negotiation                            | IN       | `option_shutdown_anysegwit` | [BOLT #2][bolt02-simple-close]                                        |
 | 62/63 | `option_splice`                   | Allows replacing the funding transaction with a new one   | IN       |                             | [BOLT #2](02-peer-protocol.md#channel-splicing)                       |
 | 66/67 | `option_onion_messages_only_channels` | Only accepts onion messages from peers with a channel | IN       | `option_onion_messages`     | [BOLT #4](04-onion-routing.md#onion-messages)                         |
-| 512/513 | `option_blake2b`                 | Follows the BLAKE2b proof of work rules                   | IN       |                             | [BOLT #9](09-features.md#the-blake2b-rules-bit)                        |
+| 512/513 | `option_blake2b`                 | Follows the BLAKE2b proof of work rules                   | IN9      |                             | [BOLT #9](09-features.md#the-blake2b-rules-bit)                        |
 
 ## Requirements
 
