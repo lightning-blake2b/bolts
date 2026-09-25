@@ -223,8 +223,8 @@ The receiving node:
     - MUST ignore the message.
   - if the specified `chain_hash` is unknown to the receiver:
     - MUST ignore the message.
-  - if the `short_channel_id`'s block height is less than 961,640, the first
-    block under the BLAKE2b rules:
+  - if the `short_channel_id`'s block height is below the BLAKE2b activation
+    height for the chain:
     - MUST ignore the message: that funding output predates the change of
       proof of work, so its spend may not be visible to this node.
     - MUST apply this to a `channel_announcement` it generates itself.
@@ -259,6 +259,19 @@ The receiving node:
   - once its funding output has been spent OR reorganized out:
     - SHOULD forget a channel after a 72-block delay.
     - SHOULD NOT rebroadcast this `channel_announcement` to its peers.
+
+#### The BLAKE2b activation height
+
+The BLAKE2b activation height is the height of the first block under the
+BLAKE2b proof of work rules:
+
+| Chain    | Activation height |
+| -------- | ----------------- |
+| mainnet  | 961,640           |
+| testnet4 | 150,308           |
+
+A chain whose proof of work did not change has no activation height, and the
+requirements that refer to it do not apply.
 
 ### Rationale
 
@@ -553,6 +566,12 @@ The receiving node:
   - if the specified `chain_hash` value is unknown (meaning it isn't active on
   the specified chain):
     - MUST ignore the channel update.
+  - if the `short_channel_id`'s block height is below the BLAKE2b activation
+  height for the chain:
+    - MUST treat the channel as unannounced: MAY use an update sent by its own
+    peer on that channel, for that peer's forwarding parameters, and MUST
+    ignore any other.
+    - MUST NOT request the corresponding `channel_announcement` because of it.
   - if the `timestamp` is equal to the last-received `channel_update` for this
     `short_channel_id` AND `node_id`:
     - if the fields below `timestamp` differ:
@@ -830,6 +849,8 @@ The sender of `query_channel_range`:
   - MUST set `chain_hash` to the 32-byte hash that uniquely identifies the chain
   that it wants the `reply_channel_range` to refer to
   - MUST set `first_blocknum` to the first block it wants to know channels for
+  - if the chain has a BLAKE2b activation height and its tip is at or above it:
+    - SHOULD NOT set `first_blocknum` below it.
   - MUST set `number_of_blocks` to 1 or greater.
   - MAY append an additional `query_channel_range_tlv`, which specifies the type of extended information it would like to receive.  
 
