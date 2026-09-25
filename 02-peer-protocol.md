@@ -795,6 +795,7 @@ The currently defined basic types are:
 Each basic type has the following variations allowed:
   - `option_scid_alias` (bit 46)
   - `option_zeroconf` (bit 50)
+  - `option_unified_sigs` (bit 514)
 
 #### Requirements
 
