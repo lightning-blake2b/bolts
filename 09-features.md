@@ -61,7 +61,7 @@ The Context column decodes as follows:
 | 62/63 | `option_splice`                   | Allows replacing the funding transaction with a new one   | IN       |                             | [BOLT #2](02-peer-protocol.md#channel-splicing)                       |
 | 66/67 | `option_onion_messages_only_channels` | Only accepts onion messages from peers with a channel | IN       | `option_onion_messages`     | [BOLT #4](04-onion-routing.md#onion-messages)                         |
 | 512/513 | `option_blake2b`                 | Follows the BLAKE2b proof of work rules                   | IN9O     |                             | [BOLT #9](09-features.md#the-blake2b-rules-bit)                        |
-| 514/515 | `option_unified_sigs`           | Signs with the unified opt-in signature hash              | INT      | `option_blake2b`            | [BOLT #3](03-transactions.md)                                          |
+| 514/515 | `option_unified_sigs`           | Signs with the unified opt-in signature hash              | INT      | `option_blake2b`            | [BOLT #3](03-transactions.md#unified-signature-hash)                   |
 
 ## Requirements
 
@@ -110,6 +110,16 @@ Membership and capability are kept apart deliberately. A node that follows
 these rules but will not open unified-signed channels is still a node on this
 chain, and a single bit for both would refuse it the network rather than one
 channel type.
+
+In a [BOLT #11](11-payment-encoding.md) invoice and in the three
+[BOLT #12](12-offer-encoding.md) feature fields, the reader's check that
+`option_blake2b` is set is load-bearing. A payment artifact has no funding
+output to look up, so the bit is the whole of what separates an invoice or
+offer written under these rules from one written under the earlier ones. A
+decoder that does not check for unknown even bits, as some do on paths that
+only display an invoice, accepts either; a node that pays from such a path
+would pay the wrong chain's invoice, so the check belongs on every path that
+leads to a payment.
 
 ## Rationale
 
