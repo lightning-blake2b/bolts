@@ -1072,7 +1072,8 @@ The sender:
     - SHOULD wait until the funding transaction has reached `minimum_depth` before
       sending this message.
     - if the funding transaction is the coinbase transaction:
-      - if it follows the BLAKE2b proof of work rules:
+      - if it follows the BLAKE2b proof of work rules and `channel_type` does
+        not include `option_zeroconf`:
         - MUST fail the channel.
       - otherwise:
         - MUST wait for at least 100 blocks.
@@ -1122,9 +1123,10 @@ would create a Denial of Service risk; therefore, forgetting it is recommended
 
 A coinbase output cannot be spent until it matures. Under the consensus rule
 that is 100 blocks, which is why a fundee waits that long before treating a
-coinbase-funded channel as usable. Under the BLAKE2b rules the relay policy
-that decides whether a spend reaches a block at all is far longer, 6,480 blocks
-on mainnet and 6,705 on testnet4, and may be lengthened again. For the whole of
+coinbase-funded channel as usable. On this network the relay policy that
+decides whether a spend reaches a block at all is far longer: 6,480 blocks on
+mainnet and 6,705 on testnet4 under the current rule, and it may be lengthened
+again. For the whole of
 that window no commitment transaction of the channel can be broadcast, while
 the HTLCs on it expire: a fundee that has forwarded an HTLC it must then claim
 on chain cannot, and loses it. Waiting the longer period was tried and left
