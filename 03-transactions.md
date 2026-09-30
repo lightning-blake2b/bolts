@@ -405,6 +405,10 @@ A node signing for a channel with `option_unified_sigs`:
       the one the broadcaster makes for itself is `0x21` in both cases, since
       [BOLT #5](05-onchain.md#generation-of-htlc-transactions) requires
       `SIGHASH_ALL` there.
+    - every input of the funding transaction, whichever peer contributes it and
+      whether or not the peer sees its witness, is signed with `0x21`: those
+      inputs spend outputs that exist under the earlier rules, and this is what
+      keeps the funding output from existing there.
   - MUST apply this to every signature it makes for the channel, including the
     first commitment signature exchanged while funding.
   - MUST take the hash type from the channel type rather than from each signing
@@ -420,6 +424,11 @@ HTLC output, are a separate case: no peer verifies them, only the chain does.
 Each spends an output created by a transaction already signed under this
 section, and a verifier without these rules rejects such a transaction, so
 that output does not exist there and the spend cannot be replayed against it.
+
+This does not extend to the funding transaction. Its inputs are not created
+under this section, so a signature on them made without the opt-in verifies
+under the earlier rules too, and the funder is the only one who signs them in a
+single-funded channel.
 
 A node signing a transaction that no peer verifies:
   - MAY use the hash type that would otherwise apply, leaving `SIGHASH_UNIFIED`
@@ -441,6 +450,12 @@ trailing hash type byte, rather than rejecting the byte itself, so a signature
 made this way fails verification there even though it looks well formed. That
 is what confines a commitment transaction, and everything descending from it,
 to these rules.
+
+Past the activation a node following these rules opens no channel without
+`option_unified_sigs`, and does not splice one that lacks it; the requirements
+are in [BOLT #2](02-peer-protocol.md#the-open_channel-message). Together with
+the funding inputs above, that confines the funding output itself as well as
+what descends from it.
 
 `option_unified_sigs` depends on `option_blake2b`, because the unified hash
 does not exist without those rules. That dependency is between feature vectors:

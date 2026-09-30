@@ -436,7 +436,10 @@ The sending node:
   - MUST order the `witnesses` by the `serial_id` of the input they
     correspond to
   - `num_witnesses`s MUST equal the number of inputs they added
-  - MUST use the `SIGHASH_ALL` (0x01) flag on each signature
+  - if `option_unified_sigs` applies to the channel:
+    - MUST use the `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) flag on each signature
+  - otherwise:
+    - MUST use the `SIGHASH_ALL` (0x01) flag on each signature
 
 The receiving node:
   - MUST fail the negotiation if:
@@ -445,7 +448,10 @@ The receiving node:
       added by the sending node
     - the `txid` does not match the txid of the transaction
     - the `witnesses` are non-standard
-    - a signature uses a flag that is not `SIGHASH_ALL` (0x01)
+    - `option_unified_sigs` applies to the channel and a signature uses a flag
+      that is not `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21)
+    - `option_unified_sigs` does not apply to the channel and a signature uses
+      a flag that is not `SIGHASH_ALL` (0x01)
   - SHOULD apply the `witnesses` to the transaction and broadcast it
   - MUST reply with their `tx_signatures` if not already transmitted
 
@@ -457,6 +463,17 @@ send `tx_signatures`, and enables multiparty tx collaboration.
 
 The `witness_data` is encoded as per bitcoin's wire protocol (a CompactSize number
 of elements, with each element a CompactSize length and that many bytes following).
+
+Under `option_unified_sigs` the inputs of the funding transaction opt in to the
+unified signature hash as well, whichever peer contributes them. Those inputs
+spend outputs that exist under the earlier rules, and a funding transaction
+whose every signature verifies there confirms there too, so the channel's
+funding output would exist under both sets of rules; one opted-in input is
+enough to prevent that. The receiving node checks the flag because it may have
+contributed no inputs of its own, in which case the peer's witnesses are the
+only thing keeping the funding output off the other rules, and they are the
+one part of the funding transaction it can see. See
+[BOLT #3](03-transactions.md#unified-signature-hash).
 
 While the `minimum fee` is calculated and verified at `tx_complete` conclusion,
 it is possible for the fee for the exchanged witness data to be underpaid.
@@ -825,6 +842,8 @@ The sending node:
         - MUST set `feerate_per_kw` to `0`.
       - if `announce_channel` is `true` (not `0`):
         - MUST NOT send `channel_type` with the `option_scid_alias` bit set.
+      - if it follows the BLAKE2b proof of work rules:
+        - MUST include `option_unified_sigs`.
 
 The sending node SHOULD:
   - set `to_self_delay` sufficient to ensure the sender can irreversibly spend a commitment transaction output, in case of misbehavior by the receiver.
@@ -874,6 +893,7 @@ are not valid secp256k1 pubkeys in compressed format.
   - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support `option_support_large_channel`.
   - the `channel_type` is not suitable.
   - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+  - it follows the BLAKE2b proof of work rules and the `channel_type` does not include `option_unified_sigs`.
 
 The receiving node MUST NOT:
   - consider funds received, using `push_msat`, to be received until the funding transaction has reached sufficient depth.
@@ -902,6 +922,19 @@ of dust htlcs, which effectively become miner fees. But it must allow values
 higher than the standard Bitcoin Core dust limits, since HTLC outputs need to
 be spent by a second-stage transaction at a feerate matching the current
 on-chain feerate.
+
+Past the BLAKE2b activation, `option_unified_sigs` is required in
+`channel_type` because a channel without it signs its commitment, HTLC and
+closing transactions under a hash type that verifies under the earlier rules as
+well. If the funding output also exists there, because its inputs predate the
+activation and were signed without the opt-in, everything descending from it
+is replayable. The receiver has no way to tell: it never sees the funder's
+inputs, and could not verify where they came from if it did. `channel_type`
+is the one thing it can check, so the requirement is placed there, and it
+applies to the sender for the same reason. A node that follows these rules but
+does not sign under the opt-in can still peer, route and hold the channels it
+already has; it cannot open a new one. See
+[BOLT #3](03-transactions.md#unified-signature-hash).
 
 Details for how to handle a channel failure can be found in [BOLT 5:Failing a Channel](05-onchain.md#failing-a-channel).
 
@@ -1220,6 +1253,8 @@ If nodes have negotiated `option_dual_fund`:
 
 The sending node:
   - MUST set `channel_type`
+  - if it follows the BLAKE2b proof of work rules:
+    - MUST include `option_unified_sigs` in `channel_type`
   - MUST set `funding_feerate_perkw` to the feerate for this transaction
   - if `channel_type` includes `zero_fee_commitments`:
     - MUST set `commitment_feerate_perkw` to `0`.
@@ -1234,6 +1269,8 @@ The receiving node:
     - `channel_type` includes `zero_fee_commitments` and `commitment_feerate_perkw` is not `0`.
     - `require_confirmed_inputs` is set but it cannot provide confirmed inputs
     - `channel_type` is not set
+    - it follows the BLAKE2b proof of work rules and `channel_type` does not
+      include `option_unified_sigs`
 
 #### Rationale
 
@@ -1673,6 +1710,8 @@ The sending node:
   - MUST NOT send `splice_init` if another splice has been negotiated but
     `splice_locked` has not been sent and received.
   - MUST NOT send `splice_init` if it has previously sent `shutdown`.
+  - MUST NOT send `splice_init` if it follows the BLAKE2b proof of work rules
+    and the channel's `channel_type` does not include `option_unified_sigs`.
   - MUST set `funding_feerate_perkw` to the feerate for the splice transaction.
   - If it is splicing funds out of the channel:
     - MUST set `funding_contribution_satoshis` to a negative value matching
@@ -1707,10 +1746,25 @@ The receiving node:
     greater than the sending node's current channel balance:
     - MUST send a `warning` and close the connection or send an `error`
       and fail the channel.
+  - If it follows the BLAKE2b proof of work rules and the channel's
+    `channel_type` does not include `option_unified_sigs`:
+    - MUST respond with `tx_abort`.
   - If it accepts the splice attempt:
     - MUST respond with `splice_ack`.
   - Otherwise (it rejects the splice):
     - MUST respond with `tx_abort`.
+
+#### Rationale
+
+A splice spends the previous funding output with an input both peers sign. On
+a channel without `option_unified_sigs` that signature is made without the
+opt-in, so if the previous funding output exists under the earlier rules the
+splice transaction confirms there too, and the channel gains a new funding
+output that exists under both. Its new `short_channel_id` is above the
+activation height, so the gossip floor in
+[BOLT #7](07-routing-gossip.md#the-blake2b-activation-height) no longer
+excludes it. Refusing the splice keeps the floor exact: a channel funded before
+the activation stays where it is until it is closed and reopened.
 
 ### The `splice_ack` Message
 
