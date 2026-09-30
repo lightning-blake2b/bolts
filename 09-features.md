@@ -115,11 +115,11 @@ In a [BOLT #11](11-payment-encoding.md) invoice and in the three
 [BOLT #12](12-offer-encoding.md) feature fields, the reader's check that
 `option_blake2b` is set is load-bearing. A payment artifact has no funding
 output to look up, so the bit is the whole of what separates an invoice or
-offer written under these rules from one written under the earlier ones. A
+offer written under these rules from one made by a node without them. A
 decoder that does not check for unknown even bits, as some do on paths that
 only display an invoice, accepts either; a node that pays from such a path
-would pay the wrong chain's invoice, so the check belongs on every path that
-leads to a payment.
+would pay an invoice from a node without these rules, so the check belongs on
+every path that leads to a payment.
 
 ## Rationale
 
