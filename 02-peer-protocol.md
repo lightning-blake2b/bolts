@@ -437,7 +437,7 @@ The sending node:
     correspond to
   - `num_witnesses`s MUST equal the number of inputs they added
   - if `option_unified_sigs` applies to the channel:
-    - MUST use the `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) flag on each signature
+    - SHOULD use the `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) flag on each signature
   - otherwise:
     - MUST use the `SIGHASH_ALL` (0x01) flag on each signature
 
@@ -448,10 +448,9 @@ The receiving node:
       added by the sending node
     - the `txid` does not match the txid of the transaction
     - the `witnesses` are non-standard
-    - `option_unified_sigs` applies to the channel and a signature uses a flag
-      that is not `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21)
-    - `option_unified_sigs` does not apply to the channel and a signature uses
-      a flag that is not `SIGHASH_ALL` (0x01)
+    - a signature uses a flag that is not `SIGHASH_ALL` (0x01), nor
+      `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) where `option_unified_sigs` applies
+      to the channel
   - SHOULD apply the `witnesses` to the transaction and broadcast it
   - MUST reply with their `tx_signatures` if not already transmitted
 
@@ -466,13 +465,18 @@ of elements, with each element a CompactSize length and that many bytes followin
 
 Under `option_unified_sigs` the inputs of the funding transaction opt in to the
 unified signature hash as well, whichever peer contributes them. Those inputs
-spend outputs that exist under the earlier rules, and a funding transaction
-whose every signature verifies there confirms there too, so the channel's
-funding output would exist under both sets of rules; one opted-in input is
-enough to prevent that. The receiving node checks the flag because it may have
-contributed no inputs of its own, in which case the peer's witnesses are the
-only thing keeping the funding output off the other rules, and they are the
-one part of the funding transaction it can see. See
+spend outputs that a verifier without these rules can see, and a funding
+transaction whose every signature verifies for such a verifier confirms for it
+too, so a copy of the funding output would exist there; one opted-in input is
+enough to prevent that. The copy is unspendable, since every spend of the
+funding output is signed under `option_unified_sigs` and nothing built on it
+verifies for a node without these rules, but the funder's inputs, as such a
+node sees them, are locked in it and recoverable only with the peer's
+cooperation. That cost falls on the signer alone, which is why the opt-in on
+funding inputs is a SHOULD: a signer that cannot produce `SIGHASH_UNIFIED`, a
+hardware wallet for instance, can still fund a channel. The receiving node
+accepts either flag for the same reason; its own inputs, if it contributed
+any, carry the opt-in regardless. See
 [BOLT #3](03-transactions.md#unified-signature-hash).
 
 While the `minimum fee` is calculated and verified at `tx_complete` conclusion,
@@ -925,10 +929,10 @@ on-chain feerate.
 
 Past the BLAKE2b activation, `option_unified_sigs` is required in
 `channel_type` because a channel without it signs its commitment, HTLC and
-closing transactions under a hash type that verifies under the earlier rules as
-well. If the funding output also exists there, because its inputs predate the
-activation and were signed without the opt-in, everything descending from it
-is replayable. The receiver has no way to tell: it never sees the funder's
+closing transactions under a hash type that verifies for a node without these
+rules as well. If such a node also sees the funding output, because its
+inputs predate the activation and were signed without the opt-in, everything
+descending from it is replayable there. The receiver has no way to tell: it never sees the funder's
 inputs, and could not verify where they came from if it did. `channel_type`
 is the one thing it can check, so the requirement is placed there, and it
 applies to the sender for the same reason. A node that follows these rules but
@@ -1758,9 +1762,9 @@ The receiving node:
 
 A splice spends the previous funding output with an input both peers sign. On
 a channel without `option_unified_sigs` that signature is made without the
-opt-in, so if the previous funding output exists under the earlier rules the
-splice transaction confirms there too, and the channel gains a new funding
-output that exists under both. Its new `short_channel_id` is above the
+opt-in, so if a verifier without these rules sees the previous funding output
+the splice transaction confirms for it too, and the channel gains a new funding
+output that such a verifier sees as well. Its new `short_channel_id` is above the
 activation height, so the gossip floor in
 [BOLT #7](07-routing-gossip.md#the-blake2b-activation-height) no longer
 excludes it. Refusing the splice keeps the floor exact: a channel funded before
