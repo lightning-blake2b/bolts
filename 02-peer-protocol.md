@@ -1108,7 +1108,12 @@ The sender:
   - if it is not the node opening the channel:
     - SHOULD wait until the funding transaction has reached `minimum_depth` before
       sending this message.
-    - MUST wait for at least 100 blocks if the funding transaction is the coinbase transaction.
+    - if the funding transaction is the coinbase transaction:
+      - if it follows the BLAKE2b proof of work rules and `channel_type` does
+        not include `option_zeroconf`:
+        - MUST fail the channel.
+      - otherwise:
+        - MUST wait for at least 100 blocks.
   - MUST set `second_per_commitment_point` to the per-commitment point to be used
   for commitment transaction #1, derived as specified in
   [BOLT #3](03-transactions.md#per-commitment-secret-requirements).
@@ -1152,6 +1157,24 @@ The non-funder can simply forget the channel ever existed, since no
 funds are at risk. If the fundee were to remember the channel forever, this
 would create a Denial of Service risk; therefore, forgetting it is recommended
 (even if the promise of `push_msat` is significant).
+
+A coinbase output cannot be spent until it matures. Under the consensus rule
+that is 100 blocks, which is why a fundee waits that long before treating a
+coinbase-funded channel as usable. On this network the relay policy that
+decides whether a spend reaches a block at all is far longer: 6,480 blocks on
+mainnet and 6,705 on testnet4 under the current rule, and it may be lengthened
+again. For the whole of
+that window no commitment transaction of the channel can be broadcast, while
+the HTLCs on it expire: a fundee that has forwarded an HTLC it must then claim
+on chain cannot, and loses it. Waiting the longer period was tried and left
+several gaps: `channel_ready` sent at the negotiated depth lets a splice move
+the channel into a state that accepts HTLCs, the fundee's 2016-block timeout
+can fire inside the window, and the figure itself may change. Failing the
+channel has none of those. The fundee has nothing in the channel to lose, and
+the miner can fund an ordinary channel once the reward matures. Zero-conf
+channels are outside this rule, as they already rest on trust in the funder; a
+dual-funded channel cannot be a coinbase, since its funding transaction is
+built between the peers rather than mined.
 
 If the fundee forgets the channel before it was confirmed, the funder will need
 to broadcast the commitment transaction to get his funds back and open a new
