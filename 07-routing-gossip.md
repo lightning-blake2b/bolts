@@ -206,6 +206,9 @@ The origin node:
   it sets.
   - If the funding transaction has less than 6 confirmations:
     - MUST NOT send `channel_announcement`.
+  - If the funding transaction's block height is below the BLAKE2b activation
+    height for the chain:
+    - MUST NOT send `channel_announcement`.
 
 The receiving node:
   - MUST verify the integrity AND authenticity of the message by verifying the
@@ -227,7 +230,6 @@ The receiving node:
     height for the chain:
     - MUST ignore the message: that funding output predates the change of
       proof of work, so its spend may not be visible to this node.
-    - MUST apply this to a `channel_announcement` it generates itself.
   - if the `short_channel_id`'s output does NOT have at least 6 confirmations:
     - MAY accept the message if the output is close to 6 confirmations, in case
       the receiving node hasn't received the latest block(s) yet.

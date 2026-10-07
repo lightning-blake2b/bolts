@@ -392,6 +392,13 @@ Past the BLAKE2b activation a signature opts in to the unified signature hash,
 which binds it to these rules and so cannot be replayed against a verifier
 without them. `option_unified_sigs` in `channel_type` says both peers do this.
 
+`SIGHASH_UNIFIED` is the hash type bit `0x20`. The digest it selects is a
+tagged hash over a BIP 341-shaped message that commits to every spent output,
+and is defined in
+[unified-sighash.md](https://github.com/privkeyio/bitcoin/blob/54d757f269/doc/unified-sighash.md),
+which is the normative reference for the digest itself; this document only
+says which signatures carry the bit.
+
 A node signing for a channel with `option_unified_sigs`:
   - MUST add `SIGHASH_UNIFIED` (`0x20`) to the hash type that signature would
     otherwise use, so:
@@ -401,7 +408,8 @@ A node signing for a channel with `option_unified_sigs`:
       which both peers sign, is signed with `0x21`.
     - an HTLC-timeout or HTLC-success transaction carries two signatures, and
       they are not alike: the one sent to the peer in `commitment_signed` is
-      `0xa3` where `option_anchors` applies and `0x21` where it does not, while
+      `0xa3` where `option_anchors` or `zero_fee_commitments` applies and
+      `0x21` where neither does, while
       the one the broadcaster makes for itself is `0x21` in both cases, since
       [BOLT #5](05-onchain.md#generation-of-htlc-transactions) requires
       `SIGHASH_ALL` there.
