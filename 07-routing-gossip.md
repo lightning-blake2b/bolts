@@ -275,6 +275,12 @@ BLAKE2b proof of work rules:
 A chain whose proof of work did not change has no activation height, and the
 requirements that refer to it do not apply.
 
+Past the activation a channel is opened only with `option_unified_sigs`, and a
+channel without it is not spliced
+([BOLT #2](02-peer-protocol.md#the-splice_init-message)), so a
+`short_channel_id` at or above the activation height refers to a channel whose
+signatures are confined to these rules.
+
 ### Rationale
 
 Both nodes are required to sign to indicate they are willing to route other
