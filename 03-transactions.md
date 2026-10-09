@@ -2517,6 +2517,27 @@ Test vectors [are provided](./bolt03/zero-fee-commitments-test.json) that detail
 transactions created using `zero_fee_commitments` in various scenarios. All parameters are provided
 to ensure that implementations generate exactly the same signed transactions.
 
+# Appendix I: Commitment and HTLC Transaction Test Vectors (unified signature hash)
+
+Test vectors are provided for the [unified signature hash](#unified-signature-hash),
+for a channel whose `channel_type` includes `option_unified_sigs`:
+
+* [unified-sigs-legacy-test.json](./bolt03/unified-sigs-legacy-test.json): the
+  cases of Appendix C, with every signature `0x21`.
+* [unified-sigs-anchors-test.json](./bolt03/unified-sigs-anchors-test.json): the
+  cases of Appendix F, with every commitment signature `0x21` and, on each HTLC
+  transaction, the signature received from the peer `0xa3` and the broadcaster's
+  own `0x21`.
+
+The format is that of Appendix F. All inputs are those of the appendix each
+file is derived from, so the only values that change are the signatures and the
+transactions that carry them: an implementation that reproduces Appendix C and
+Appendix F should reproduce these by changing nothing but the hash type.
+
+Two cases of Appendix C, "commitment tx with all five HTLCs untrimmed (minimum
+feerate)" and "commitment tx with fee greater than funder amount", are not yet
+covered.
+
 # References
 
 # Authors
