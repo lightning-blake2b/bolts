@@ -428,6 +428,19 @@ A node signing for a channel with `option_unified_sigs`:
     [BOLT #2](02-peer-protocol.md#the-tx_signatures-message), falls on the
     signer alone.
 
+`option_unified_sigs` is defined only for channel types whose signatures carry
+a hash type byte. It is not defined for the simple taproot channel types of
+[bolt-simple-taproot.md](bolt-simple-taproot.md): their commitment and closing
+signatures are MuSig2 partial signatures over a BIP 341 digest under
+`SIGHASH_DEFAULT`, which has no byte to carry the bit, so opting them in would
+be a change to the wire format rather than a hash type. A node that follows
+these rules MUST NOT propose or accept a `channel_type` that combines
+`option_unified_sigs` with `option_simple_taproot` or
+`option_simple_taproot_staging`, and, since
+[BOLT #2](02-peer-protocol.md#the-open_channel-message) requires the bit on
+every channel it opens past the activation, it opens no taproot channel until
+the bit is defined for MuSig2.
+
 ### Spends only this node signs
 
 The justice transaction handed to a watchtower, and the sweep of a second-level
