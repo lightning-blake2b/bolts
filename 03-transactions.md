@@ -46,6 +46,7 @@ This details the exact format of on-chain transactions, which both sides need to
   * [Appendix F: Commitment and HTLC Transaction Test Vectors (anchors)](#appendix-f-commitment-and-htlc-transaction-test-vectors-anchors)
   * [Appendix G: Dual Funded Transaction Test Vectors](#appendix-g-dual-funded-transaction-test-vectors)
   * [Appendix H: Commitment and HTLC Transaction Test Vectors (zero-fee-commitments)](#appendix-h-commitment-and-htlc-transaction-test-vectors-zero-fee-commitments)
+  * [Appendix I: Commitment and HTLC Transaction Test Vectors (unified signature hash)](#appendix-i-commitment-and-htlc-transaction-test-vectors-unified-signature-hash)
   * [References](#references)
   * [Authors](#authors)
 
@@ -2516,6 +2517,23 @@ Note locktime is set to 120.
 Test vectors [are provided](./bolt03/zero-fee-commitments-test.json) that detail commitment and HTLC
 transactions created using `zero_fee_commitments` in various scenarios. All parameters are provided
 to ensure that implementations generate exactly the same signed transactions.
+
+# Appendix I: Commitment and HTLC Transaction Test Vectors (unified signature hash)
+
+Test vectors are provided for the [unified signature hash](#unified-signature-hash),
+for a channel whose `channel_type` includes `option_unified_sigs`:
+
+* [unified-sigs-static-remotekey-test.json](./bolt03/unified-sigs-static-remotekey-test.json):
+  the cases of Appendix C, with every signature `0x21`.
+* [unified-sigs-anchors-test.json](./bolt03/unified-sigs-anchors-test.json): the
+  cases of Appendix F, with every commitment signature `0x21` and, on each HTLC
+  transaction, the signature received from the peer `0xa3` and the broadcaster's
+  own `0x21`.
+
+The format is that of Appendix F. All inputs are those of the appendix each
+file is derived from, and every transaction is identical to that appendix's
+except for its signatures: an implementation that reproduces Appendix C and
+Appendix F should reproduce these by changing nothing but the hash type.
 
 # References
 
