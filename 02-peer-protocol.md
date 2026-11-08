@@ -2180,15 +2180,35 @@ Once a node has sent and received `splice_locked`:
     - If `announce_channel` is set for this channel:
       - MUST send `announcement_signatures` with `short_channel_id` matching
         this splice transaction.
-    - MUST use as each side's channel reserve 1% of the new channel
-      capacity, rounded down, or the channel opener's `dust_limit_satoshis`
-      if greater, from the first `channel_reestablish` exchange in which
-      both nodes' `my_current_funding_locked` name this splice transaction,
-      once it has received its peer's `channel_reestablish`.
-    - Until then, MUST keep the channel reserves it used before the splice.
   - If the `splice_txid`s are for different RBF candidates:
     - SHOULD ignore the message.
     - MAY send an `error` and fail the channel.
+
+For a channel with `option_splice`, at each `channel_reestablish` exchange,
+once a node has received its peer's `channel_reestablish`:
+  - If its peer's `my_current_funding_locked` is missing, or names neither the
+    transaction of the last `splice_locked` it received from that peer (or of
+    the last `my_current_funding_locked` it processed as one), nor a
+    transaction that spends it directly or through other splice transactions:
+    - MUST use that last `splice_locked`'s transaction in its place below, or
+      the channel funding transaction if it has received none.
+    - MAY send a `warning`.
+  - MUST take as the reserve transaction the latest transaction that its own
+    and its peer's named transactions both are or spend, directly or through
+    other splice transactions: for two RBF candidates, the transaction both
+    spend.
+  - If the reserve transaction is a splice transaction:
+    - MUST use as each side's channel reserve 1% of its channel capacity,
+      rounded down, or the channel opener's `dust_limit_satoshis` if greater.
+  - Otherwise:
+    - MUST use the channel reserves set at channel opening.
+  - MUST keep those reserves until the next such exchange.
+  - MUST remember the last `splice_locked` it received from its peer across
+    disconnections and restarts.
+
+Until its first such exchange, a channel uses the channel reserves set at
+channel opening. Once a node has sent and received `splice_locked`, it MAY
+disconnect and reconnect so that the new reserves take effect.
 
 ##### Rationale
 
@@ -2209,10 +2229,32 @@ have sent and received `splice_locked`" is not enough to pick it: a node
 can't tell whether its `splice_locked` reached its peer before a
 disconnection, so that condition can come true for the two nodes one
 reconnection apart. Each `channel_reestablish` exchange shows both nodes both
-`my_current_funding_locked`, so they agree on the one where both name the
-splice, and switch before any update on that connection. A splice ends the
-reserves negotiated in `open_channel` too: like a channel opened with
-`open_channel2`, a spliced channel is funded by both sides.
+`my_current_funding_locked`, so they agree on the transaction both have
+locked, and switch before any update on that connection. Taking the latest
+transaction that both named transactions are or spend makes the reserves
+depend on that exchange alone, which both nodes see: a node that missed an
+exchange still lands on the same reserves as its peer, and nodes on different
+forks that name different RBF candidates both use the transaction those spend.
+When both name a second splice, its reserves apply whether or not the first
+one's ever did. A peer gains nothing by naming a later transaction than it has
+locked, since the earlier of the two is taken. Naming anything other than its
+last `splice_locked` or a later splice (an ancestor, an RBF candidate beside
+it, an unknown transaction, or nothing) would take the reserves back, as far
+as those set at channel opening, so the node uses that last `splice_locked`
+instead. It does not close the connection: an honest node can name less than
+it has locked, after a restore from a static backup or a crash that lost its
+record of a `splice_locked` it sent, and the connection has to stay up for the
+channel to be recovered, or for the node to learn the lock again from its
+peer's `my_current_funding_locked`. A reorganization deeper than acceptable
+depth, undoing a lock, is outside this: the channel's commitment transactions
+spend an output that may no longer exist. A splice ends the reserves
+negotiated in `open_channel` too: like a channel opened with `open_channel2`,
+a spliced channel is funded by both sides.
+
+The reserves change only at an exchange, so after a lock they stay as they
+were until the nodes reconnect. After a splice-out the old reserves can be
+higher than a side's new balance allows, and that side can add no HTLC until
+then; the MAY above lets either node bring the exchange forward.
 
 ## Channel Close
 
