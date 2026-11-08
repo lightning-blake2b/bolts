@@ -250,20 +250,35 @@ bound of 21 million BTC:
 The following convenience types are also defined:
 
 * `chain_hash`: a 32-byte chain identifier (see [BOLT #0](00-introduction.md#glossary-and-terminology-guide))
-* `channel_id`: a 32-byte channel_id (see [BOLT #2](02-peer-protocol.md#definition-of-channel-id))
+* `channel_id`: a 32-byte channel_id (see [BOLT #2](02-peer-protocol.md#definition-of-channel_id))
 * `sha256`: a 32-byte SHA2-256 hash
 * `signature`: a 64-byte bitcoin Elliptic Curve signature
 * `bip340sig`: a 64-byte bitcoin Elliptic Curve Schnorr signature as per [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
 * `point`: a 33-byte Elliptic Curve point (compressed encoding as per [SEC 1 standard](http://www.secg.org/sec1-v2.pdf#subsubsection.2.3.3))
-* `short_channel_id`: an 8 byte value identifying a channel (see [BOLT #7](07-routing-gossip.md#definition-of-short-channel-id))
+* `short_channel_id`: an 8 byte value identifying a channel (see [BOLT #7](07-routing-gossip.md#definition-of-short_channel_id))
 * `sciddir_or_pubkey`: either 9 or 33 bytes referencing or identifying a node, respectively
     * if the first byte is 0 or 1, then an 8-byte `short_channel_id` follows for a total of 9 bytes
         * 0 for the first byte indicates this refers to `node_id_1` in the `channel_announcement` for `short_channel_id`
-        * 1 for the first byte indicates this refers to `node_id_2` in the `channel_announcement` for `short_channel_id`
-          (see [BOLT #7](07-routing-gossip.md#the-channel_announcement-message)
+        * 1 for the first byte indicates this refers to `node_id_2` in the `channel_announcement` for `short_channel_id` (see [BOLT #7](07-routing-gossip.md#the-channel_announcement-message))
     * if the first byte is 2 or 3, then the value is a 33-byte `point`
 * `bigsize`: a variable-length, unsigned integer similar to Bitcoin's CompactSize encoding, but big-endian.  Described in [BigSize](#appendix-a-bigsize-test-vectors).
-* `utf8`: a byte as part of a UTF-8 string.  A writer MUST ensure an array of these is a valid UTF-8 string, a reader MAY reject any messages containing an array of these which is not a valid UTF-8 string.
+* `utf8`: a byte as part of a UTF-8 string.
+
+### Unicode characters validation
+
+In many messages, we accept a subset of UTF-8, defined as arrays of the `utf8` fundamental type (see the section above).
+
+A writer:
+- MUST NOT include characters from the unicode "Other" (C*) General Category.
+- MUST NOT include the "Zl" (line separator) or "Zp" (paragraph separator) character.
+
+A reader:
+- MUST reject a UTF-8 string if:
+  - it is not a valid UTF-8 string.
+  - it contains characters in the unicode "Cc", "Cf", "Cs", or "Co" General Category.
+  - it contains the "Zl" (line separator) or "Zp" (paragraph separator) character.
+- MAY reject a UTF-8 string if:
+  - it contains characters in the Unicode "Cn" (unassigned) General Category.
 
 ## Setup Messages
 
