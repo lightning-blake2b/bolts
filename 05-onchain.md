@@ -146,7 +146,11 @@ A node:
         - SHOULD use this fee to perform a *mutual close*.
       - otherwise:
       	- if the node knows or assumes its channel state is outdated:
-      	  - MUST NOT broadcast its *last commitment transaction*.
+      	  - MUST NOT broadcast its *last commitment transaction*, other than
+      	    as [BOLT #2](02-peer-protocol.md#message-retransmission) allows,
+      	    on a channel with `option_independent_secrets`, a node that meets
+      	    the multi-signer requirements of
+      	    [BOLT #3](03-transactions.md#independent-per-commitment-secrets).
         - otherwise:
           - MUST broadcast the *last commitment transaction*, for which it has a
           signature, to perform a *unilateral close*.
