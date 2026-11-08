@@ -6,18 +6,21 @@
 # For every signature in a vector file's commitment and HTLC transactions, it
 # recomputes the digest the signature's hash type selects, from the unified
 # signature hash as BOLT 3 references it (privkeyio/bitcoin 54d757f269,
-# doc/unified-sighash.md), and verifies the signature against the public keys
-# in the input's witness script. It shares no code with any implementation:
-# secp256k1 and transaction parsing are written out below, using only the
-# Python standard library (Python 3.8 or later).
+# doc/unified-sighash.md), and verifies the signatures against the public keys
+# in the input's witness script as its OP_CHECKMULTISIG does: as many as it
+# requires, right after an empty dummy, each from a key after the previous
+# signature's. It shares no code with any implementation: secp256k1 and
+# transaction parsing are written out below, using only the Python standard
+# library (Python 3.8 or later).
 #
 # Usage:
 #   tools/verify-unified-sighash-vectors.py bolt03/unified-sigs-*-test.json
 #
 # Prints, per file, how many signatures of each hash type verified, and a
-# FAIL line for any that did not. Exits 1 if any signature failed or a file
-# held none to check. --tag changes the digest's tag: with any other tag
-# every signature should fail, which shows the check is not vacuous.
+# FAIL line for any that did not or any malformed witness. Exits 1 if any
+# signature failed, a witness was malformed or a file held none to check.
+# --tag changes the digest's tag: with any other tag every signature should
+# fail, which shows the check is not vacuous.
 
 from optparse import OptionParser
 import hashlib
@@ -204,44 +207,114 @@ def unified_digest(tx, idx, spent, script_code, hash_type, tag):
     return tagged_hash(tag, m)
 
 
-def script_pubkeys(script):
-    """The 33-byte pushes of a script: the keys a signature may be from."""
-    keys, i = [], 0
+def parse_ops(script):
+    """A script as (opcode, push data) pairs; data is None for a non-push."""
+    ops, i = [], 0
     while i < len(script):
         op = script[i]
         if 1 <= op <= 75:
-            if op == 33:
-                keys.append(script[i + 1:i + 34])
+            ops.append((op, script[i + 1:i + 1 + op]))
             i += 1 + op
         else:
+            ops.append((op, None))
             i += 1
-    return keys
+    return ops
+
+
+OP_SWAP, OP_CHECKMULTISIG = 0x7c, 0xae
+
+
+def small_int(op):
+    """The value of OP_1..OP_16, or None."""
+    return op - 0x50 if 0x51 <= op <= 0x60 else None
+
+
+def multisig(script):
+    """The keys, in stack order, and the number of signatures the script's
+    CHECKMULTISIG requires.
+
+    The funding script pushes OP_m and its keys together; the HTLC scripts
+    push the remote key earlier and bring it under OP_m with OP_SWAP, so the
+    keys are the last n key pushes before OP_CHECKMULTISIG and OP_m is the
+    small integer before the last of them, OP_SWAP aside."""
+    ops = parse_ops(script)
+    at = next((i for i, (op, _) in enumerate(ops) if op == OP_CHECKMULTISIG),
+              None)
+    if at is None or at == 0:
+        raise ValueError("no OP_CHECKMULTISIG in the spent script")
+    n = small_int(ops[at - 1][0])
+    keys = [d for op, d in ops[:at] if d is not None and len(d) == 33]
+    if n is None or len(keys) < n:
+        raise ValueError("cannot read the CHECKMULTISIG key count")
+    keys = keys[-n:]
+    last_key = max(i for i, (op, d) in enumerate(ops[:at])
+                   if d is not None and len(d) == 33)
+    m = None
+    for op, d in reversed(ops[:last_key]):
+        if d is not None and len(d) == 33 or op == OP_SWAP:
+            continue
+        m = small_int(op)
+        break
+    if m is None or not 1 <= m <= n:
+        raise ValueError("cannot read the CHECKMULTISIG signature count")
+    return keys, m
 
 
 def check_input(tx, idx, spent, counts, label, tag):
     witness = tx['ins'][idx]['witness']
     script = witness[-1]
-    keys = script_pubkeys(script)
-    # Each signature must be from a different key: a witness carrying one
-    # signature twice signs for one key, however many slots it fills.
-    used = set()
-    for item in witness[:-1]:
-        # Signatures: DER followed by the hash type byte. Other items (the
-        # empty CHECKMULTISIG dummy, preimages) are skipped.
-        if len(item) < 60 or item[0] != 0x30:
-            continue
+    keys, required = multisig(script)
+
+    malformed = []
+
+    def fail(why, kind='fail'):
+        if kind == 'bad':
+            malformed.append(why)
+        else:
+            counts['fail'] = counts.get('fail', 0) + 1
+        print("FAIL {}: {}".format(label, why))
+
+    # CHECKMULTISIG's dummy is the first item and must be empty (NULLDUMMY,
+    # consensus for segwit v0); the signatures, DER followed by the hash type
+    # byte, come right after it. Any items after them (a preimage, or an
+    # empty item for OP_IF) are the rest of the script's input.
+    if not witness or witness[0] != b'':
+        fail("the CHECKMULTISIG dummy is not an empty first item", 'bad')
+    looks_like_sig = [len(item) >= 60 and item[0] == 0x30
+                      for item in witness[:-1]]
+    if sum(looks_like_sig) != required:
+        fail("{} signatures, the script requires {}".format(
+            sum(looks_like_sig), required), 'bad')
+    elif looks_like_sig[1:1 + required] != [True] * required:
+        fail("the signatures do not follow the dummy", 'bad')
+    sigs = [item for item, is_sig in zip(witness[:-1], looks_like_sig)
+            if is_sig]
+
+    # CHECKMULTISIG takes the signatures and the keys in the same order, each
+    # signature from a key after the previous one's, so one key cannot sign
+    # twice and the order matters. Every signature is checked and counted,
+    # also after one fails, and a malformed witness counts once however many
+    # of the checks above it fails. The witness items other than the dummy and
+    # the signatures (a preimage, an empty item) are not checked.
+    k = 0
+    for item in sigs:
         hash_type, sig = item[-1], item[:-1]
         digest = unified_digest(tx, idx, spent, script, hash_type, tag)
         counts[hash_type] = counts.get(hash_type, 0) + 1
-        signer = next((k for k in keys
-                       if k not in used and ecdsa_verify(k, digest, sig)),
-                      None)
-        if signer is None:
-            counts['fail'] = counts.get('fail', 0) + 1
-            print("FAIL {}: hash type {:#04x}, digest {}".format(
-                label, hash_type, digest.hex()))
-        else:
-            used.add(signer)
+        start = k
+        while k < len(keys) and not ecdsa_verify(keys[k], digest, sig):
+            k += 1
+        if k == len(keys):
+            fail("hash type {:#04x}, digest {}: no key at or after this "
+                 "signature's position signs it".format(hash_type,
+                                                        digest.hex()))
+            # Check the next signature from where this one started, so a bad
+            # signature does not make the ones after it fail too.
+            k = start
+            continue
+        k += 1
+    if malformed:
+        counts['bad'] = counts.get('bad', 0) + 1
 
 
 # BOLT 3 Appendix C: the funding output every test vector spends.
@@ -284,12 +357,14 @@ def main():
     for path in files:
         counts = check_file(path, options.tag)
         fails = counts.pop('fail', 0)
+        bad = counts.pop('bad', 0)
         summary = ', '.join('{} at {:#04x}'.format(n, ht)
                             for ht, n in sorted(counts.items()))
         total = sum(counts.values())
-        print("{}: {} signatures ({}): {} verified, {} failed".format(
-            path, total, summary or 'none', total - fails, fails))
-        if fails or not counts:
+        print("{}: {} signatures ({}): {} verified, {} failed; {} witnesses "
+              "malformed".format(path, total, summary or 'none',
+                                 total - fails, fails, bad))
+        if fails or bad or not counts:
             ok = False
     sys.exit(0 if ok else 1)
 
