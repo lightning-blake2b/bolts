@@ -2210,6 +2210,20 @@ Until its first such exchange, a channel uses the channel reserves set at
 channel opening. Once a node has sent and received `splice_locked`, it MAY
 disconnect and reconnect so that the new reserves take effect.
 
+Once the reserves change at an exchange, a node:
+  - MUST NOT send an update the new reserves do not allow, other than one it
+    first sent before the change and is sending again with a
+    `commitment_signed` it has to send again.
+  - Until it receives the first `commitment_signed` from its peer after the
+    change, on that connection or a later one, and the rest of its batch if
+    splice transactions are pending:
+    - MUST NOT close the connection or fail the channel for the channel
+      reserve over an `update_add_htlc` or `update_fee` it receives in that
+      time, or over that `commitment_signed`, if any reserves it used since
+      the last `commitment_signed` it received from its peer allow it.
+    - MUST remember those reserves, and that this is still owed, across
+      disconnections and restarts.
+
 ##### Rationale
 
 If nodes are on a different fork of the blockchain, they may disagree on which
@@ -2255,6 +2269,30 @@ The reserves change only at an exchange, so after a lock they stay as they
 were until the nodes reconnect. After a splice-out the old reserves can be
 higher than a side's new balance allows, and that side can add no HTLC until
 then; the MAY above lets either node bring the exchange forward.
+
+Updates first sent before the reserves change and retransmitted after it were
+added under the reserves in force then. Checked against the new ones, a
+retransmitted `update_add_htlc` or `update_fee` could fail, and the receiver
+would close the connection on every reconnection until the HTLC times out, or
+fail the channel. The sender could leave such an HTLC out of its
+retransmission, but it could not fail it back until its peer revokes that
+commitment number: it sends it again because its peer's
+`next_commitment_number` says the peer never received that
+`commitment_signed`, but that is the peer's own report, and a peer that did
+receive it holds a signed commitment with the HTLC, which it can broadcast
+until it revokes it. Leaving it out would also mean renumbering any HTLC added
+after it. So the receiver is lenient instead. Retransmitted updates all come
+before the `commitment_signed` that carries them, the first one the receiver
+gets after the change, so the window ends there. It spans connections because
+a connection can drop before that `commitment_signed` arrives, and the same
+updates then come again on the next one; a node that forgot it across a
+restart would be back in the loop.
+
+The receiver cannot tell a retransmitted update from a new one, so the
+leniency covers both. A sender that breaks the rule above can, in that window,
+take its balance down to the old reserve rather than the new one, where the
+old one is the lower (as after a splice-in): by at most the difference between
+the two. Every later update is held to the new reserves.
 
 ## Channel Close
 
