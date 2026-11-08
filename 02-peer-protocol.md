@@ -2025,8 +2025,9 @@ The receiving node:
       script.
     - MUST append the 0x21 hash type byte to both signatures in the shared
       input's witness.
-  - MAY fail the negotiation if a P2TR input's witness is not a key path
-    spend.
+  - If it has not yet sent its own `tx_signatures`:
+    - MAY fail the negotiation if a P2TR input's witness is not a key path
+      spend.
   - MUST consider the channel no longer quiescent.
 
 On reconnection:
