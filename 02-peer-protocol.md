@@ -2221,8 +2221,8 @@ Once the reserves change at an exchange, a node:
       reserve over an `update_add_htlc` or `update_fee` it receives in that
       time, or over that `commitment_signed`, if any reserves it used since
       the last `commitment_signed` it received from its peer allow it.
-    - MUST remember those reserves, and that this is still owed, across
-      disconnections and restarts.
+    - MUST remember those reserves, and that it is still waiting for that
+      `commitment_signed`, across disconnections and restarts.
 
 ##### Rationale
 
@@ -2269,6 +2269,15 @@ The reserves change only at an exchange, so after a lock they stay as they
 were until the nodes reconnect. After a splice-out the old reserves can be
 higher than a side's new balance allows, and that side can add no HTLC until
 then; the MAY above lets either node bring the exchange forward.
+
+An implementation that instead sets a spliced channel's reserves as the
+channel loads for a connection, from its own lock state, disagrees with this
+rule on the connection where it completes a lock through its peer's
+`my_current_funding_locked`: it keeps the old reserves for that connection
+while its peer switches. A reserve check that fails then can fail the channel.
+Against such a node, reconnecting once both nodes have sent and received
+`splice_locked` avoids that, since from the next connection both use the new
+reserves.
 
 Updates first sent before the reserves change and retransmitted after it were
 added under the reserves in force then. Checked against the new ones, a
