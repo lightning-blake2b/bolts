@@ -439,7 +439,8 @@ The sending node:
   - if `option_unified_sigs` applies to the channel:
     - SHOULD use the `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) flag on each signature
   - otherwise:
-    - MUST use the `SIGHASH_ALL` (0x01) flag on each signature
+    - MUST use the `SIGHASH_ALL` (0x01) flag on each signature, or
+      `SIGHASH_DEFAULT` for a 64-byte BIP341 key path signature
 
 The receiving node:
   - MUST fail the negotiation if:
@@ -448,9 +449,10 @@ The receiving node:
       added by the sending node
     - the `txid` does not match the txid of the transaction
     - the `witnesses` are non-standard
-    - a signature uses a flag that is not `SIGHASH_ALL` (0x01), nor
-      `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) where `option_unified_sigs` applies
-      to the channel
+    - a signature is not a 64-byte BIP341 key path signature (implicitly
+      `SIGHASH_DEFAULT`) and uses a flag that is not `SIGHASH_ALL` (0x01),
+      nor `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) where `option_unified_sigs`
+      applies to the channel
   - SHOULD apply the `witnesses` to the transaction and broadcast it
   - MUST reply with their `tx_signatures` if not already transmitted
 
@@ -478,6 +480,12 @@ hardware wallet for instance, can still fund a channel. The receiving node
 accepts either flag for the same reason; its own inputs, if it contributed
 any, carry the opt-in regardless. See
 [BOLT #3](03-transactions.md#unified-signature-hash).
+
+A 64-byte key path signature commits to every spent output, like
+`SIGHASH_ALL`. In a splice the shared input is one of them and is signed
+0x21, which a verifier without these rules rejects, so a wallet input
+signed with 0x01 or with an implicit `SIGHASH_DEFAULT` can't be lifted into
+a transaction valid for such a verifier.
 
 While the `minimum fee` is calculated and verified at `tx_complete` conclusion,
 it is possible for the fee for the exchanged witness data to be underpaid.
@@ -1748,6 +1756,7 @@ The sending node:
       the amount that will be added to its current channel balance.
   - If it requires the receiving node to only use confirmed inputs:
     - MUST set `require_confirmed_inputs`.
+  - SHOULD set `require_confirmed_inputs`.
   - SHOULD use a different `funding_pubkey` than the one used for the
     previous funding transaction.
 
@@ -1793,6 +1802,11 @@ activation height, so the gossip floor in
 excludes it. Refusing the splice keeps the floor exact: a channel funded before
 the activation stays where it is until it is closed and reopened.
 
+An unconfirmed input can be evicted or double-spent while the splice waits,
+leaving the splice unable to confirm and the channel unable to shut down.
+Asking for confirmed inputs, in `splice_init` and `splice_ack` and so in the
+`tx_init_rbf` and `tx_ack_rbf` that follow them, avoids that.
+
 ### The `splice_ack` Message
 
 1. type: 81 (`splice_ack`)
@@ -1815,6 +1829,7 @@ The sending node:
     to contribute to the splice.
   - If it requires the receiving node to only use confirmed inputs:
     - MUST set `require_confirmed_inputs`.
+  - SHOULD set `require_confirmed_inputs`.
 
 The receiving node:
   - If it has sent `splice_init`:
@@ -1850,6 +1865,13 @@ The sending node:
   - If the receiver set `require_confirmed_inputs` in `splice_init`,
     `splice_ack`, `tx_init_rbf` or `tx_ack_rbf`:
     - MUST NOT send a `tx_add_input` that contains an unconfirmed input.
+  - If it follows the BLAKE2b proof of work rules:
+    - MUST NOT add an input spending a coinbase output.
+  - SHOULD only add inputs spending P2WPKH outputs, or P2TR outputs it will
+    sign with the key path.
+  - MUST NOT add an input whose `sequence` sets a non-zero relative lock
+    (BIP 68: bit 31 clear and a non-zero lock value) that is not already
+    satisfied.
 
 The receiving node:
   - If `shared_input_txid` is set:
@@ -1857,6 +1879,13 @@ The receiving node:
       - MUST fail the negotiation by sending `tx_abort`.
     - If `prevtx_vout` doesn't match the previous funding output index:
       - MUST fail the negotiation by sending `tx_abort`.
+  - If it follows the BLAKE2b proof of work rules and `prevtx` is a coinbase
+    transaction:
+    - MUST fail the negotiation by sending `tx_abort`.
+  - MAY fail the negotiation if the input spends an output other than P2WPKH
+    or P2TR.
+  - MAY fail the negotiation if the input's `sequence` sets a non-zero
+    relative lock, satisfied or not.
 
 ##### Rationale
 
@@ -1866,6 +1895,25 @@ and pay the fees for its weight. It would be wasteful to transmit the
 previous funding transaction in the `prevtx` field, and wouldn't even
 be possible for funding transactions that exceed 65kB, so we only transmit
 its `txid` using the `shared_input_txid` field.
+
+An input that can't relay leaves the splice unconfirmed, and while a splice
+is unconfirmed the channel can neither shut down nor splice again: unless
+both sides agree to a replacement without that input, its only way out is a
+force close. Under the BLAKE2b proof of work rules a coinbase output only
+relays after a long maturity (6,480 blocks on mainnet), and below 100
+confirmations it is not even valid. `require_confirmed_inputs` doesn't catch
+it, since a mined coinbase is confirmed, so it is refused outright. Checking
+the coinbase flag needs no height lookup, so the rule holds if the relay
+maturity changes.
+
+At `tx_complete` each node checks that the other's inputs pay the agreed
+feerate, which needs the size of each input's witness. A P2WPKH witness and
+a P2TR key path witness have a known size; a P2WSH input's depends on a
+script the receiver only sees in `tx_signatures`, after both sides have
+committed to the transaction. A relative lock that isn't satisfied yet keeps
+the splice from confirming, with the channel unable to shut down meanwhile;
+telling a satisfied one apart needs the spent output's confirmation depth,
+so a receiver may refuse any.
 
 #### The `tx_add_output` Message
 
@@ -1959,6 +2007,10 @@ The sending node:
   - MUST set `shared_input_signature` to a valid ECDSA signature for the
     `tx_add_input` spending the previous channel funding output using the
     `funding_pubkey` that matches this input.
+  - If `option_unified_sigs` applies to the channel:
+    - MUST compute `shared_input_signature` over the
+      `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) digest of BOLT 3 for the shared
+      input.
 
 The receiving node:
   - If `shared_input_signature` is not set:
@@ -1966,6 +2018,16 @@ The receiving node:
   - If `shared_input_signature` is not valid or non-compliant with the
     LOW-S-standard rule<sup>[LOWS](https://github.com/bitcoin/bitcoin/pull/6769)</sup>:
     - MUST send an `error` and fail the channel.
+  - If `option_unified_sigs` applies to the channel:
+    - MUST verify `shared_input_signature` against the
+      `SIGHASH_ALL|SIGHASH_UNIFIED` (0x21) digest of the shared input, using
+      the channel's current funding output as the spent output's amount and
+      script.
+    - MUST append the 0x21 hash type byte to both signatures in the shared
+      input's witness.
+  - If it has not yet sent its own `tx_signatures`:
+    - MAY fail the negotiation if a P2TR input's witness is not a key path
+      spend.
   - MUST consider the channel no longer quiescent.
 
 On reconnection:
@@ -1977,6 +2039,12 @@ On reconnection:
 Spending the channel funding output requires a signature from both peers.
 Each peer transmits its own signature, which allows creating a valid
 witness for the shared input without adding an additional message.
+
+`shared_input_signature` carries no hash type byte, so both sides must agree
+on it. The unified (0x21) digest commits to every spent output's amount and
+script; the shared input's `prevtx` is not sent, so those come from the
+funding output both nodes already know. Test vectors are in
+[bolt02/splice-unified-sigs-test.json](bolt02/splice-unified-sigs-test.json).
 
 Once `tx_signatures` have been exchanged, the splice transaction can be
 broadcast. The channel is no longer quiescent: normal operation can resume
@@ -2116,6 +2184,46 @@ Once a node has sent and received `splice_locked`:
     - SHOULD ignore the message.
     - MAY send an `error` and fail the channel.
 
+For a channel with `option_splice`, at each `channel_reestablish` exchange,
+once a node has received its peer's `channel_reestablish`:
+  - If its peer's `my_current_funding_locked` is missing, or names neither the
+    transaction of the last `splice_locked` it received from that peer (or of
+    the last `my_current_funding_locked` it processed as one), nor a
+    transaction that spends it directly or through other splice transactions:
+    - MUST use that last `splice_locked`'s transaction in its place below, or
+      the channel funding transaction if it has received none.
+    - MAY send a `warning`.
+  - MUST take as the reserve transaction the latest transaction that its own
+    and its peer's named transactions both are or spend, directly or through
+    other splice transactions: for two RBF candidates, the transaction both
+    spend.
+  - If the reserve transaction is a splice transaction:
+    - MUST use as each side's channel reserve 1% of its channel capacity,
+      rounded down, or the channel opener's `dust_limit_satoshis` if greater.
+  - Otherwise:
+    - MUST use the channel reserves set at channel opening.
+  - MUST keep those reserves until the next such exchange.
+  - MUST remember the last `splice_locked` it received from its peer across
+    disconnections and restarts.
+
+Until its first such exchange, a channel uses the channel reserves set at
+channel opening. Once a node has sent and received `splice_locked`, it MAY
+disconnect and reconnect so that the new reserves take effect.
+
+Once the reserves change at an exchange, a node:
+  - MUST NOT send an update the new reserves do not allow, other than one it
+    first sent before the change and is sending again with a
+    `commitment_signed` it has to send again.
+  - Until it receives the first `commitment_signed` from its peer after the
+    change, on that connection or a later one, and the rest of its batch if
+    splice transactions are pending:
+    - MUST NOT close the connection or fail the channel for the channel
+      reserve over an `update_add_htlc` or `update_fee` it receives in that
+      time, or over that `commitment_signed`, if any reserves it used since
+      the last `commitment_signed` it received from its peer allow it.
+    - MUST remember those reserves, and that it is still waiting for that
+      `commitment_signed`, across disconnections and restarts.
+
 ##### Rationale
 
 If nodes are on a different fork of the blockchain, they may disagree on which
@@ -2124,6 +2232,76 @@ or simply ignore `splice_locked` and wait for one of the forks to eventually
 replace the other, at which point both nodes should agree on which RBF attempt
 confirmed and exchange `splice_locked` for the same `splice_txid` to complete
 the splice.
+
+Both nodes check every update against both sides' reserves: an HTLC added by
+one side changes the other's balance as well, since the channel opener pays
+the commitment fee. The reserves must therefore change for both nodes at the
+same point in the message flow. Changing them as `splice_locked` is
+exchanged leaves a race, since updates may already be in flight;
+`channel_reestablish` is a point both nodes pass together. "After both nodes
+have sent and received `splice_locked`" is not enough to pick it: a node
+can't tell whether its `splice_locked` reached its peer before a
+disconnection, so that condition can come true for the two nodes one
+reconnection apart. Each `channel_reestablish` exchange shows both nodes both
+`my_current_funding_locked`, so they agree on the transaction both have
+locked, and switch before any update on that connection. Taking the latest
+transaction that both named transactions are or spend makes the reserves
+depend on that exchange alone, which both nodes see: a node that missed an
+exchange still lands on the same reserves as its peer, and nodes on different
+forks that name different RBF candidates both use the transaction those spend.
+When both name a second splice, its reserves apply whether or not the first
+one's ever did. A peer gains nothing by naming a later transaction than it has
+locked, since the earlier of the two is taken. Naming anything other than its
+last `splice_locked` or a later splice (an ancestor, an RBF candidate beside
+it, an unknown transaction, or nothing) would take the reserves back, as far
+as those set at channel opening, so the node uses that last `splice_locked`
+instead. It does not close the connection: an honest node can name less than
+it has locked, after a restore from a static backup or a crash that lost its
+record of a `splice_locked` it sent, and the connection has to stay up for the
+channel to be recovered, or for the node to learn the lock again from its
+peer's `my_current_funding_locked`. A reorganization deeper than acceptable
+depth, undoing a lock, is outside this: the channel's commitment transactions
+spend an output that may no longer exist. A splice ends the reserves
+negotiated in `open_channel` too: like a channel opened with `open_channel2`,
+a spliced channel is funded by both sides.
+
+The reserves change only at an exchange, so after a lock they stay as they
+were until the nodes reconnect. After a splice-out the old reserves can be
+higher than a side's new balance allows, and that side can add no HTLC until
+then; the MAY above lets either node bring the exchange forward.
+
+An implementation that instead sets a spliced channel's reserves as the
+channel loads for a connection, from its own lock state, disagrees with this
+rule on the connection where it completes a lock through its peer's
+`my_current_funding_locked`: it keeps the old reserves for that connection
+while its peer switches. A reserve check that fails then can fail the channel.
+Against such a node, reconnecting once both nodes have sent and received
+`splice_locked` avoids that, since from the next connection both use the new
+reserves.
+
+Updates first sent before the reserves change and retransmitted after it were
+added under the reserves in force then. Checked against the new ones, a
+retransmitted `update_add_htlc` or `update_fee` could fail, and the receiver
+would close the connection on every reconnection until the HTLC times out, or
+fail the channel. The sender could leave such an HTLC out of its
+retransmission, but it could not fail it back until its peer revokes that
+commitment number: it sends it again because its peer's
+`next_commitment_number` says the peer never received that
+`commitment_signed`, but that is the peer's own report, and a peer that did
+receive it holds a signed commitment with the HTLC, which it can broadcast
+until it revokes it. Leaving it out would also mean renumbering any HTLC added
+after it. So the receiver is lenient instead. Retransmitted updates all come
+before the `commitment_signed` that carries them, the first one the receiver
+gets after the change, so the window ends there. It spans connections because
+a connection can drop before that `commitment_signed` arrives, and the same
+updates then come again on the next one; a node that forgot it across a
+restart would be back in the loop.
+
+The receiver cannot tell a retransmitted update from a new one, so the
+leniency covers both. A sender that breaks the rule above can, in that window,
+take its balance down to the old reserve rather than the new one, where the
+old one is the lower (as after a splice-in): by at most the difference between
+the two. Every later update is held to the new reserves.
 
 ## Channel Close
 
