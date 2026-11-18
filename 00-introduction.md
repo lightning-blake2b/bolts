@@ -235,7 +235,8 @@ See [BOLT #11: Invoice Protocol for Lightning Payments](11-payment-encoding.md) 
 * #### *Per-commitment secret*:
    * Every *[commitment transaction](#commitment-transaction)* derives its keys from a per-commitment secret,
      which is generated such that the series of per-commitment secrets
-     for all previous commitments can be stored compactly.
+     for all previous commitments can be stored compactly (except on a channel
+     with `option_independent_secrets`, where each may be generated on its own).
    * _See container: [commitment transaction](#commitment-transaction)_
    * _See derivation: [commitment revocation private key](#commitment-revocation-private-key)_
 
