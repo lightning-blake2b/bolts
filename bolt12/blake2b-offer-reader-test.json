@@ -1,0 +1,14 @@
+[
+  {
+    "description": "Required bit 512",
+    "expected_xbt_reader_action": "may_request_invoice",
+    "bolt12": "lno1p3qszqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpvggzamrjghtt05kvkvpcp0a79gmy3nt6jsn98ad2xs8de6sl9qmgvcvs",
+    "tlv_hex": "0c410100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000162102eec7245d6b7d2ccb30380bfbe2a3648cd7a942653f5aa340edcea1f283686619"
+  },
+  {
+    "description": "Missing offer_features",
+    "expected_xbt_reader_action": "must_not_respond",
+    "bolt12": "lno1zcss9mk8y3wkklfvevcrszlmu23kfrxh49px20665dqwmn4p72pksese",
+    "tlv_hex": "162102eec7245d6b7d2ccb30380bfbe2a3648cd7a942653f5aa340edcea1f283686619"
+  }
+]
