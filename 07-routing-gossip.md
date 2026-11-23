@@ -530,7 +530,7 @@ The origin node:
     - MUST set the `direction` bit of `channel_flags` to 1.
   - MUST set `htlc_maximum_msat` to the maximum value it will send through this channel for a single HTLC.
     - MUST set this to less than or equal to the channel capacity.
-    - MUST set this to less than or equal to `max_htlc_value_in_flight_msat` it received from the peer.
+    - MUST set this to less than or equal to the peer's `max_htlc_value_in_flight_msat` in force (see [BOLT #2](02-peer-protocol.md#the-splice_locked-message)).
     - MUST set this to greater than or equal to `htlc_minimum_msat`.
   - MUST set `must_be_one` in `message_flags` to 1.
   - MUST set bits in `channel_flags` and `message_flags` that are not assigned a meaning to 0.
