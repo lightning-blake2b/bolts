@@ -1,0 +1,60 @@
+[
+  {
+    "Name": "splice of a unified channel: the shared input and a P2WPKH input from each peer",
+    "Description": "A (the initiator) and B splice a 1000000 sat channel. A adds 150000 sat from a 200000 sat P2WPKH coin and B 250000 sat from a 300000 sat coin, each paying its own share of the fee (A 1000 sat, B 500 sat) and taking the rest as P2WPKH change. B sends tx_signatures first: its inputs total less (300000 sat, against A's 1200000 with the shared input). Serial ids: the shared input 0, B's input 1, A's input 2; the funding output 0, B's change 1, A's change 2. Private keys are 32 repeated bytes: 0x01 and 0x02 the current funding keys of A and B, 0x03 and 0x04 the splice's, 0x11 and 0x12 the wallet keys.",
+    "CurrentFundingPubkeyA": "031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f",
+    "CurrentFundingPubkeyB": "024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766",
+    "SpliceFundingPubkeyA": "02531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337",
+    "SpliceFundingPubkeyB": "03462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b",
+    "WalletPubkeyA": "034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa",
+    "WalletPubkeyB": "036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7",
+    "CurrentFundingWitnessScriptHex": "5221024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d076621031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f52ae",
+    "SpentOutputs": [
+      {
+        "Input": 0,
+        "Outpoint": "5555555555555555555555555555555555555555555555555555555555555555:0",
+        "Value": 1000000,
+        "ScriptPubKeyHex": "0020eb72e573a9513d982a01f0e6a6b53e92764db81a0c26d2be94c5fc5b69a0db7d"
+      },
+      {
+        "Input": 1,
+        "Outpoint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1",
+        "Value": 300000,
+        "ScriptPubKeyHex": "0014e73b9a69c634548563f4c72f76a4e2109461ff5b"
+      },
+      {
+        "Input": 2,
+        "Outpoint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0",
+        "Value": 200000,
+        "ScriptPubKeyHex": "0014fc7250a211deddc70ee5a2738de5f07817351cef"
+      }
+    ],
+    "UnsignedTxHex": "020000000355555555555555555555555555555555555555555555555555555555555555550000000000fdffffffbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0100000000fdffffffaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000000000fdffffff03c05c150000000000220020f69ea15cfc7226e0a7aeab59353c54335447647a44c34ffaf5729709cc10e44b5cc1000000000000160014e73b9a69c634548563f4c72f76a4e2109461ff5b68bf000000000000160014fc7250a211deddc70ee5a2738de5f07817351cefa0bb0d00",
+    "SigHashType": "0x21",
+    "ExpectedDigests": [
+      "20b769b92eba6ce488487d50308b97319be0605c67b90aebff666f009b2aa3d5",
+      "03c8087ce1768ace849cd4f355390897e3c2dee30d4c26ec5ac12a8d0d1b2e4c",
+      "704b20d562abef665346459c5ee9f9e94fa19fd5fad6a29f22a4cda359850146"
+    ],
+    "SharedInputSignatureA": "3044022067a1315c2104cd2064a5fa14b7f950654a6cb267c3b057f04f3b0dcbaf74ce8602203f147dffa817103d2f4b3652b6c05f12307c83543ea1d03689f532d6bb0c654f",
+    "SharedInputSignatureB": "3045022100d14fac33523327351ed006b7bd91d098af6e9fa691d8f38fe2c4369b6c7d3e5f02202f91eb55b4acaf9f0467cb79de0b41c0ff43d438129570067b1aa9641f1c5d29",
+    "ExpectedWitnesses": [
+      [
+        "",
+        "3045022100d14fac33523327351ed006b7bd91d098af6e9fa691d8f38fe2c4369b6c7d3e5f02202f91eb55b4acaf9f0467cb79de0b41c0ff43d438129570067b1aa9641f1c5d2921",
+        "3044022067a1315c2104cd2064a5fa14b7f950654a6cb267c3b057f04f3b0dcbaf74ce8602203f147dffa817103d2f4b3652b6c05f12307c83543ea1d03689f532d6bb0c654f21",
+        "5221024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d076621031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f52ae"
+      ],
+      [
+        "304402202e7cf16e2a29fc3c2ce0892c0214827b4dbf8334450d4ed6b28c39a3cf3b091902205521dc4fdf179cd035ef3e2fa40438fc0425b951d14b0d366a6b2b6c49f2da4021",
+        "036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7"
+      ],
+      [
+        "304402200644fa41cdb0873c2e3fa0f33bdd9ba3846463704c68313c9bd6170f459a228f0220043ea545bc33e23d97b174ea54d0155a3967f1bf2e017334559d5592ab01a21821",
+        "034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa"
+      ]
+    ],
+    "ExpectedSignedTxHex": "0200000000010355555555555555555555555555555555555555555555555555555555555555550000000000fdffffffbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0100000000fdffffffaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000000000fdffffff03c05c150000000000220020f69ea15cfc7226e0a7aeab59353c54335447647a44c34ffaf5729709cc10e44b5cc1000000000000160014e73b9a69c634548563f4c72f76a4e2109461ff5b68bf000000000000160014fc7250a211deddc70ee5a2738de5f07817351cef0400483045022100d14fac33523327351ed006b7bd91d098af6e9fa691d8f38fe2c4369b6c7d3e5f02202f91eb55b4acaf9f0467cb79de0b41c0ff43d438129570067b1aa9641f1c5d2921473044022067a1315c2104cd2064a5fa14b7f950654a6cb267c3b057f04f3b0dcbaf74ce8602203f147dffa817103d2f4b3652b6c05f12307c83543ea1d03689f532d6bb0c654f21475221024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d076621031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f52ae0247304402202e7cf16e2a29fc3c2ce0892c0214827b4dbf8334450d4ed6b28c39a3cf3b091902205521dc4fdf179cd035ef3e2fa40438fc0425b951d14b0d366a6b2b6c49f2da402121036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f70247304402200644fa41cdb0873c2e3fa0f33bdd9ba3846463704c68313c9bd6170f459a228f0220043ea545bc33e23d97b174ea54d0155a3967f1bf2e017334559d5592ab01a2182121034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aaa0bb0d00",
+    "ExpectedTxid": "875f3d4eeb268a1cd8d9148194b69d1b52280745e835096098621667ad5a5361"
+  }
+]
