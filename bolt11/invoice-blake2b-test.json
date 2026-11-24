@@ -1,0 +1,12 @@
+[
+  {
+    "description": "Invoice with option_blake2b (bit 512)",
+    "passes_blake2b_feature_check": true,
+    "invoice": "lnbc10u1p4sphcqpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsdpdgfxyzj69xf3zq6twwehkjcm9ypnx2ct5w4ex2gr5v4ehgnp4q0n326hr8v9zprg8gsvezcch06gfaqqhde2aj730yg0durunfhv66xqrrsscqpj9r8yqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsgq2ss2v2cmaahapen3m08sz6glq3ve5v2fxwcn8dagu9urvfx90jpk39065kradhyl44s757t2jll5l7npfusl9kzhlwndqall8s2tmxcpjd55ea"
+  },
+  {
+    "description": "Otherwise identical invoice without option_blake2b",
+    "passes_blake2b_feature_check": false,
+    "invoice": "lnbc10u1p4sphcqpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygsdpdgfxyzj69xf3zq6twwehkjcm9ypnx2ct5w4ex2gr5v4ehgnp4q0n326hr8v9zprg8gsvezcch06gfaqqhde2aj730yg0durunfhv66xqrrsscqpj9qrsgqk8p5e5gahd6pp6fjefpxsgsgrsak8e6g6y4mrxakgr0jp67gkpr9p23uldt6fsxqqs9w0zkxkv6pdcahwkr9xhc3w40l4gcrptf7kksqhslmuc"
+  }
+]
